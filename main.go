@@ -25,15 +25,30 @@ const (
 <head>
 <meta charset="utf-8">
 <title>{{.SiteName}} - {{.Title}}</title>
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/2.8.0/github-markdown.min.css">
+<style>
+	.markdown-body {
+		box-sizing: border-box;
+		min-width: 200px;
+		max-width: 980px;
+		margin: 0 auto;
+		padding: 45px;
+	}
+
+	@media (max-width: 767px) {
+		.markdown-body {
+			padding: 15px;
+		}
+	}
+</style>
 </head>
 <body>
-{{.Contents}}
+<article class="markdown-body">{{.Contents}}</article>
 </body>
 </html>`
 
 	indexPageMarkdownTemplateText = `{{range .}}
-* {{.Title}} - {{.CreatedAt}}
+* [{{.Title}}]({{.URL}}) - {{.CreatedAt}}
 {{end}}`
 )
 
@@ -69,6 +84,10 @@ type article struct {
 
 func (art *article) urlDateString() string {
 	return art.CreatedAt.Format(urlDateLayout)
+}
+
+func (art *article) URL() string {
+	return "/articles/" + art.urlDateString() + ".html"
 }
 
 func dbOpen() (*sql.DB, error) {
@@ -343,7 +362,7 @@ func articlesGetHandler(w http.ResponseWriter, r *http.Request) {
 
 		ren := &renderer{
 			SiteName: globalConfiguration.SiteName,
-			Title:    "index",
+			Title:    a.Title,
 			Contents: string(out),
 		}
 		renderbuf := bytes.NewBufferString("")
@@ -406,7 +425,7 @@ func articlesPutHandler(w http.ResponseWriter, r *http.Request) {
 	// make response
 	w.WriteHeader(http.StatusOK)
 	res := &responseJSON{
-		URL:       "/articles/" + a.urlDateString() + ".html",
+		URL:       a.URL(),
 		Title:     a.Title,
 		Contents:  a.Contents,
 		CreatedAt: a.CreatedAt,
@@ -450,7 +469,7 @@ func articlesPostHandler(w http.ResponseWriter, r *http.Request) {
 	// make response
 	w.WriteHeader(http.StatusCreated)
 	res := &responseJSON{
-		URL:       "/articles/" + a.urlDateString() + ".html",
+		URL:       a.URL(),
 		Title:     a.Title,
 		Contents:  a.Contents,
 		CreatedAt: a.CreatedAt,
@@ -491,7 +510,7 @@ func articlesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	// make response
 	w.WriteHeader(http.StatusOK)
 	res := &responseJSON{
-		URL:       "/articles/" + a.urlDateString() + ".html",
+		URL:       a.URL(),
 		Title:     a.Title,
 		Contents:  a.Contents,
 		CreatedAt: a.CreatedAt,
