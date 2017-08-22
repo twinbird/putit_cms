@@ -19,7 +19,7 @@ import (
 
 const (
 	maxTitleLength     = 50
-	URLDateLayout      = "20060102150405"
+	urlDateLayout      = "20060102150405"
 	layoutTemplateText = `<!DOCTYPE html>
 <html>
 <head>
@@ -38,40 +38,40 @@ const (
 )
 
 var (
-	globalConfiguration       *Config
+	globalConfiguration       *config
 	layoutTemplate            *template.Template
 	indexPageMarkdownTemplate *template.Template
 )
 
-type Renderer struct {
+type renderer struct {
 	SiteName string
 	Title    string
 	Contents string
 }
 
-type ResponseJSON struct {
+type responseJSON struct {
 	URL       string
 	Title     string
 	Contents  string
 	CreatedAt time.Time
 }
 
-type Config struct {
+type config struct {
 	DBPath   string
 	SiteName string
 }
 
-type Article struct {
+type article struct {
 	Title     string
 	Contents  string
 	CreatedAt time.Time
 }
 
-func (art *Article) URLDateString() string {
-	return art.CreatedAt.Format(URLDateLayout)
+func (art *article) urlDateString() string {
+	return art.CreatedAt.Format(urlDateLayout)
 }
 
-func DBOpen() (*sql.DB, error) {
+func dbOpen() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", globalConfiguration.DBPath)
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func DBOpen() (*sql.DB, error) {
 }
 
 func execDDL() error {
-	db, err := DBOpen()
+	db, err := dbOpen()
 	if err != nil {
 		return err
 	}
@@ -99,46 +99,46 @@ CREATE TABLE articles (
 	return nil
 }
 
-func (art *Article) Insert() error {
-	db, err := DBOpen()
+func (art *article) insert() error {
+	db, err := dbOpen()
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
 	_, err = db.Exec(`
-		INSERT INTO articles(title, contents, created_at) VALUES(?, ?, ?)
-	`, art.Title, art.Contents, art.URLDateString())
+		insert INTO articles(title, contents, created_at) VALUES(?, ?, ?)
+	`, art.Title, art.Contents, art.urlDateString())
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (art *Article) Update() error {
-	db, err := DBOpen()
+func (art *article) update() error {
+	db, err := dbOpen()
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
 	_, err = db.Exec(`
-		UPDATE
+		update
 			articles
 		SET
 			title = ?,
 			contents = ?
 		WHERE
 			created_at = ?
-	`, art.Title, art.Contents, art.URLDateString())
+	`, art.Title, art.Contents, art.urlDateString())
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func DeleteArticle(dateStr string) error {
-	db, err := DBOpen()
+func deleteArticle(dateStr string) error {
+	db, err := dbOpen()
 	if err != nil {
 		return err
 	}
@@ -157,8 +157,8 @@ func DeleteArticle(dateStr string) error {
 	return nil
 }
 
-func SelectMultiArticles() ([]*Article, error) {
-	db, err := DBOpen()
+func selectMultiArticles() ([]*article, error) {
+	db, err := dbOpen()
 	if err != nil {
 		return nil, err
 	}
@@ -175,15 +175,15 @@ func SelectMultiArticles() ([]*Article, error) {
 	if err != nil {
 		return nil, err
 	}
-	var articles []*Article
+	var articles []*article
 	for rows.Next() {
-		var art Article
+		var art article
 		var t string
 		err := rows.Scan(&(art.Title), &(art.Contents), &t)
 		if err != nil {
 			return nil, err
 		}
-		art.CreatedAt, err = time.Parse(URLDateLayout, t)
+		art.CreatedAt, err = time.Parse(urlDateLayout, t)
 		if err != nil {
 			return nil, err
 		}
@@ -193,14 +193,14 @@ func SelectMultiArticles() ([]*Article, error) {
 	return articles, nil
 }
 
-func SelectArticle(dateStr string) (*Article, error) {
-	db, err := DBOpen()
+func selectArticle(dateStr string) (*article, bool, error) {
+	db, err := dbOpen()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer db.Close()
 
-	var art Article
+	var art article
 	err = db.QueryRow(`
 		SELECT
 			a.title AS title,
@@ -210,15 +210,18 @@ func SelectArticle(dateStr string) (*Article, error) {
 		WHERE
 			a.created_at = ?
 	`, dateStr).Scan(&(art.Title), &(art.Contents))
-	if err != nil {
-		return nil, err
+	if err == sql.ErrNoRows {
+		return nil, false, nil
 	}
-	art.CreatedAt, err = time.Parse(URLDateLayout, dateStr)
 	if err != nil {
-		return nil, err
+		return nil, false, err
+	}
+	art.CreatedAt, err = time.Parse(urlDateLayout, dateStr)
+	if err != nil {
+		return nil, false, err
 	}
 
-	return &art, nil
+	return &art, true, nil
 }
 
 func main() {
@@ -229,7 +232,7 @@ func main() {
 	flag.BoolVar(&needInit, "init", false, "DDL execute for db")
 	flag.Parse()
 
-	globalConfiguration = &Config{DBPath: dbPath, SiteName: "test"}
+	globalConfiguration = &config{DBPath: dbPath, SiteName: "test"}
 
 	if needInit == true {
 		if err := execDDL(); err != nil {
@@ -252,7 +255,7 @@ func main() {
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: .json, .mdの対応
-	articles, err := SelectMultiArticles()
+	articles, err := selectMultiArticles()
 	if err != nil {
 		log.Println(err)
 		errorPageRender(w, r)
@@ -267,13 +270,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	c := blackfriday.MarkdownCommon(buf.Bytes())
 
-	renderer := &Renderer{
+	ren := &renderer{
 		SiteName: globalConfiguration.SiteName,
 		Title:    "index",
 		Contents: string(c),
 	}
 	renderbuf := bytes.NewBufferString("")
-	if err = layoutTemplate.Execute(renderbuf, renderer); err != nil {
+	if err = layoutTemplate.Execute(renderbuf, ren); err != nil {
 		log.Println(err)
 		errorPageRender(w, r)
 		return
@@ -324,26 +327,27 @@ func articlesGetHandler(w http.ResponseWriter, r *http.Request) {
 		errorPageRender(w, r)
 		return
 	}
-	a, err := SelectArticle(name)
-	if err == sql.ErrNoRows {
-		http.NotFound(w, r)
-		return
-	} else if err != nil {
+	a, exist, err := selectArticle(name)
+	if err != nil {
 		log.Println(err)
 		errorPageRender(w, r)
+		return
+	}
+	if exist == false {
+		http.NotFound(w, r)
 		return
 	}
 	switch ext {
 	case "html":
 		out := blackfriday.MarkdownCommon([]byte(a.Contents))
 
-		renderer := &Renderer{
+		ren := &renderer{
 			SiteName: globalConfiguration.SiteName,
 			Title:    "index",
 			Contents: string(out),
 		}
 		renderbuf := bytes.NewBufferString("")
-		if err = layoutTemplate.Execute(renderbuf, renderer); err != nil {
+		if err = layoutTemplate.Execute(renderbuf, ren); err != nil {
 			log.Println(err)
 			errorPageRender(w, r)
 			return
@@ -367,13 +371,14 @@ func articlesPutHandler(w http.ResponseWriter, r *http.Request) {
 		errorPageRender(w, r)
 		return
 	}
-	a, err := SelectArticle(name)
-	if err == sql.ErrNoRows {
-		http.NotFound(w, r)
-		return
-	} else if err != nil {
+	a, exist, err := selectArticle(name)
+	if err != nil {
 		log.Println(err)
 		errorPageRender(w, r)
+		return
+	}
+	if exist == false {
+		http.NotFound(w, r)
 		return
 	}
 	// 投稿内容を取得
@@ -393,15 +398,15 @@ func articlesPutHandler(w http.ResponseWriter, r *http.Request) {
 	// DB保存
 	a.Title = t
 	a.Contents = c
-	if err := a.Update(); err != nil {
+	if err := a.update(); err != nil {
 		log.Println(err)
 		errorPageRender(w, r)
 		return
 	}
 	// make response
 	w.WriteHeader(http.StatusOK)
-	res := &ResponseJSON{
-		URL:       "/articles/" + a.URLDateString() + ".html",
+	res := &responseJSON{
+		URL:       "/articles/" + a.urlDateString() + ".html",
 		Title:     a.Title,
 		Contents:  a.Contents,
 		CreatedAt: a.CreatedAt,
@@ -432,20 +437,20 @@ func articlesPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// DB保存
-	a := &Article{
+	a := &article{
 		Title:     t,
 		Contents:  c,
 		CreatedAt: time.Now(),
 	}
-	if err := a.Insert(); err != nil {
+	if err := a.insert(); err != nil {
 		log.Println(err)
 		errorPageRender(w, r)
 		return
 	}
 	// make response
 	w.WriteHeader(http.StatusCreated)
-	res := &ResponseJSON{
-		URL:       "/articles/" + a.URLDateString() + ".html",
+	res := &responseJSON{
+		URL:       "/articles/" + a.urlDateString() + ".html",
 		Title:     a.Title,
 		Contents:  a.Contents,
 		CreatedAt: a.CreatedAt,
@@ -467,16 +472,17 @@ func articlesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		errorPageRender(w, r)
 		return
 	}
-	a, err := SelectArticle(name)
-	if err == sql.ErrNoRows {
-		http.NotFound(w, r)
-		return
-	} else if err != nil {
+	a, exist, err := selectArticle(name)
+	if err != nil {
 		log.Println(err)
 		errorPageRender(w, r)
 		return
 	}
-	err = DeleteArticle(a.URLDateString())
+	if exist == false {
+		http.NotFound(w, r)
+		return
+	}
+	err = deleteArticle(a.urlDateString())
 	if err != nil {
 		log.Println(err)
 		errorPageRender(w, r)
@@ -484,8 +490,8 @@ func articlesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// make response
 	w.WriteHeader(http.StatusOK)
-	res := &ResponseJSON{
-		URL:       "/articles/" + a.URLDateString() + ".html",
+	res := &responseJSON{
+		URL:       "/articles/" + a.urlDateString() + ".html",
 		Title:     a.Title,
 		Contents:  a.Contents,
 		CreatedAt: a.CreatedAt,
