@@ -11,7 +11,7 @@ const (
 <html>
 <head>
 <meta charset="utf-8">
-<title>{{.SiteName}} - {{.Title}}</title>
+<title>{{.Title}}</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/2.8.0/github-markdown.min.css">
 <style>
 	.markdown-body {
@@ -40,7 +40,6 @@ const (
 )
 
 type renderer struct {
-	SiteName string
 	Title    string
 	Contents string
 }

@@ -27,8 +27,7 @@ var (
 )
 
 type config struct {
-	DBPath   string
-	SiteName string
+	DBPath string
 }
 
 func main() {
@@ -39,7 +38,7 @@ func main() {
 	flag.BoolVar(&needInit, "init", false, "DDL execute for db")
 	flag.Parse()
 
-	globalConfiguration = &config{DBPath: dbPath, SiteName: "test"}
+	globalConfiguration = &config{DBPath: dbPath}
 
 	if needInit == true {
 		if err := execDDL(); err != nil {
@@ -79,7 +78,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	c := blackfriday.MarkdownCommon(buf.Bytes())
 
 	ren := &renderer{
-		SiteName: globalConfiguration.SiteName,
 		Title:    "index",
 		Contents: string(c),
 	}
@@ -119,7 +117,6 @@ func profileGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ren := &renderer{
-		SiteName: globalConfiguration.SiteName,
 		Title:    "profile",
 		Contents: string(c),
 	}
@@ -225,7 +222,6 @@ func articlesGetHandler(w http.ResponseWriter, r *http.Request) {
 		out := blackfriday.MarkdownCommon([]byte(a.Contents))
 
 		ren := &renderer{
-			SiteName: globalConfiguration.SiteName,
 			Title:    a.Title,
 			Contents: string(out),
 		}
