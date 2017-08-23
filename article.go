@@ -28,7 +28,7 @@ func (art *article) insert() error {
 	defer db.Close()
 
 	_, err = db.Exec(`
-		insert INTO articles(title, contents, created_at) VALUES(?, ?, ?)
+		INSERT INTO articles(title, contents, created_at) VALUES(?, ?, ?)
 	`, art.Title, art.Contents, art.urlDateString())
 	if err != nil {
 		return err

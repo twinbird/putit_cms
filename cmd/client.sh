@@ -3,6 +3,7 @@
 # client delete [URL]
 
 URL="http://mydevelop/articles/"
+ProfileURL="http://mydevelop/profile"
 
 case "$1" in
 "post")
@@ -13,6 +14,9 @@ case "$1" in
 	;;
 "put")
 	curl -X PUT -H "Content-Type: text/plain" "$URL""$2" --data-binary @"$3"
+	;;
+"profile")
+	curl -X PUT -H "Content-Type: text/plain" "$ProfileURL" --data-binary @"$2"
 	;;
 esac
 

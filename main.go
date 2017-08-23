@@ -53,6 +53,7 @@ func main() {
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/index.html", indexHandler)
+	http.HandleFunc("/profile", profileHandlerPortal)
 	http.HandleFunc("/articles/", articlesHandlerPortal)
 
 	if err := http.ListenAndServe(":80", nil); err != nil {
@@ -90,6 +91,81 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, string(renderbuf.Bytes()))
+}
+
+func profileHandlerPortal(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		profileGetHandler(w, r)
+	case "PUT":
+		profilePutHandler(w, r)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func profileGetHandler(w http.ResponseWriter, r *http.Request) {
+	// TODO: .mdの対応
+	pro, exist, err := selectProfile()
+	if err != nil {
+		log.Println(err)
+		errorPageRender(w, r)
+		return
+	}
+
+	var c []byte
+	if exist == true {
+		c = blackfriday.MarkdownCommon([]byte(pro.Contents))
+	}
+
+	ren := &renderer{
+		SiteName: globalConfiguration.SiteName,
+		Title:    "profile",
+		Contents: string(c),
+	}
+	renderbuf := bytes.NewBufferString("")
+	if err = layoutTemplate.Execute(renderbuf, ren); err != nil {
+		log.Println(err)
+		errorPageRender(w, r)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, string(renderbuf.Bytes()))
+}
+
+func profilePutHandler(w http.ResponseWriter, r *http.Request) {
+	// 投稿内容を取得
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println(err)
+		errorPageRender(w, r)
+		return
+	}
+
+	// DB保存
+	p := &profile{
+		Contents: string(b),
+	}
+	if err := p.save(); err != nil {
+		log.Println(err)
+		errorPageRender(w, r)
+		return
+	}
+	// make response
+	w.WriteHeader(http.StatusCreated)
+	res := &responseJSON{
+		URL:       "/profile.html",
+		Title:     "profile",
+		Contents:  p.Contents,
+		CreatedAt: time.Now(),
+	}
+	resb, err := json.Marshal(res)
+	if err != nil {
+		log.Println(err)
+		errorPageRender(w, r)
+		return
+	}
+	fmt.Fprintf(w, string(resb))
 }
 
 func articlesHandlerPortal(w http.ResponseWriter, r *http.Request) {
