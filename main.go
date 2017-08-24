@@ -48,6 +48,7 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Printf("DB: %s initialized\n", globalConfiguration.DBPath)
+		os.Exit(0)
 	}
 
 	layoutTemplate = template.Must(template.New("layout").Parse(layoutTemplateText))
@@ -62,6 +63,7 @@ func main() {
 	if err := http.ListenAndServe(":80", nil); err != nil {
 		log.Fatal(err)
 	}
+	os.Exit(0)
 }
 
 func staticFileHandlerPortal(w http.ResponseWriter, r *http.Request) {
