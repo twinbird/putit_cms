@@ -4,6 +4,7 @@
 
 URL="http://mydevelop/articles/"
 ProfileURL="http://mydevelop/profile"
+FileURL="http://mydevelop/static/"
 
 case "$1" in
 "post")
@@ -17,6 +18,9 @@ case "$1" in
 	;;
 "profile")
 	curl -X PUT -H "Content-Type: text/plain" "$ProfileURL" --data-binary @"$2"
+	;;
+"file")
+	curl -X PUT -H "Content-Type: text/plain" "$FileURL""$2" --data-binary @"$2"
 	;;
 esac
 

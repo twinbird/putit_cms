@@ -10,6 +10,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -27,7 +29,8 @@ var (
 )
 
 type config struct {
-	DBPath string
+	DBPath         string
+	StaticFilePath string
 }
 
 func main() {
@@ -38,7 +41,7 @@ func main() {
 	flag.BoolVar(&needInit, "init", false, "DDL execute for db")
 	flag.Parse()
 
-	globalConfiguration = &config{DBPath: dbPath}
+	globalConfiguration = &config{DBPath: dbPath, StaticFilePath: "./static"}
 
 	if needInit == true {
 		if err := execDDL(); err != nil {
@@ -54,10 +57,53 @@ func main() {
 	http.HandleFunc("/index.html", indexHandler)
 	http.HandleFunc("/profile", profileHandlerPortal)
 	http.HandleFunc("/articles/", articlesHandlerPortal)
+	http.HandleFunc("/static/", staticFileHandlerPortal)
 
 	if err := http.ListenAndServe(":80", nil); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func staticFileHandlerPortal(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		staticFileGetHandler(w, r)
+	case "PUT":
+		staticFilePutHandler(w, r)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func staticFileGetHandler(w http.ResponseWriter, r *http.Request) {
+	p := strings.TrimPrefix(r.URL.Path, "/static/")
+	http.ServeFile(w, r, p)
+}
+
+func staticFilePutHandler(w http.ResponseWriter, r *http.Request) {
+	// 投稿内容を取得
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println(err)
+		errorPageRender(w, r)
+		return
+	}
+
+	// パスを構成
+	p := strings.TrimPrefix(r.URL.Path, "/static/")
+	p = filepath.Clean(p)
+	p = filepath.Join(globalConfiguration.StaticFilePath, p)
+
+	// 書き込み
+	err = ioutil.WriteFile(p, b, os.ModePerm)
+	if err != nil {
+		log.Println(err)
+		errorPageRender(w, r)
+		return
+	}
+	// レスポンス
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "")
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
