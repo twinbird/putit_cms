@@ -36,9 +36,11 @@ type config struct {
 func main() {
 	var dbPath string
 	var needInit bool
+	var templatePath string
 
 	flag.StringVar(&dbPath, "db", "sly.db", "SQLite3 DB file path")
 	flag.BoolVar(&needInit, "init", false, "DDL execute for db")
+	flag.StringVar(&templatePath, "t", "", "customize template file path")
 	flag.Parse()
 
 	globalConfiguration = &config{DBPath: dbPath, StaticFilePath: "./static"}
@@ -51,7 +53,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	layoutTemplate = template.Must(template.New("layout").Parse(layoutTemplateText))
+	if b, err := ioutil.ReadFile(templatePath); err != nil {
+		layoutTemplate = template.Must(template.New("layout").Parse(layoutTemplateText))
+	} else {
+		layoutTemplate = template.Must(template.New("layout").Parse(string(b)))
+	}
 	indexPageMarkdownTemplate = template.Must(template.New("index").Parse(indexPageMarkdownTemplateText))
 
 	http.HandleFunc("/", indexHandler)
