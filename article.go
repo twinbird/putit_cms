@@ -78,12 +78,14 @@ func deleteArticle(dateStr string) error {
 	return nil
 }
 
-func selectMultiArticles() ([]*article, error) {
+func selectMultiArticles(q string) ([]*article, error) {
 	db, err := dbOpen()
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
+
+	q = "%" + q + "%"
 
 	rows, err := db.Query(`
 		SELECT
@@ -92,7 +94,9 @@ func selectMultiArticles() ([]*article, error) {
 			a.created_at AS created_at
 		FROM
 			articles a
-	`)
+		WHERE
+			title LIKE ?
+	`, q)
 	if err != nil {
 		return nil, err
 	}

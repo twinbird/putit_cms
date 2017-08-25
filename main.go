@@ -37,13 +37,21 @@ func main() {
 	var dbPath string
 	var needInit bool
 	var templatePath string
+	var staticPath string
+
+	current, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defaultStaticPath := filepath.Join(current, "static")
 
 	flag.StringVar(&dbPath, "db", "sly.db", "SQLite3 DB file path")
 	flag.BoolVar(&needInit, "init", false, "DDL execute for db")
 	flag.StringVar(&templatePath, "t", "", "customize template file path")
+	flag.StringVar(&staticPath, "s", defaultStaticPath, "static file dir")
 	flag.Parse()
 
-	globalConfiguration = &config{DBPath: dbPath, StaticFilePath: "./static"}
+	globalConfiguration = &config{DBPath: dbPath, StaticFilePath: staticPath}
 
 	if needInit == true {
 		if err := execDDL(); err != nil {
@@ -115,8 +123,9 @@ func staticFilePutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: .json, .mdの対応
-	articles, err := selectMultiArticles()
+	r.ParseForm()
+	q := r.FormValue("q")
+	articles, err := selectMultiArticles(q)
 	if err != nil {
 		log.Println(err)
 		errorPageRender(w, r)
