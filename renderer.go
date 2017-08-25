@@ -34,7 +34,8 @@ const (
 </body>
 </html>`
 
-	indexPageMarkdownTemplateText = `{{range .}}
+	indexPageMarkdownTemplateText = `<form action="/" method="GET"><input type="text" name="q"><input type="submit" value="search"></form>
+{{range .}}
 * [{{.Title}}]({{.URL}}) - {{.CreatedAt}}
 {{end}}`
 )
