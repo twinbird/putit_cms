@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -45,7 +46,7 @@ func main() {
 	}
 	defaultStaticPath := filepath.Join(current, "static")
 
-	flag.StringVar(&dbPath, "db", "sly.db", "SQLite3 DB file path")
+	flag.StringVar(&dbPath, "db", "cms.db", "SQLite3 DB file path")
 	flag.BoolVar(&needInit, "init", false, "DDL execute for db")
 	flag.StringVar(&templatePath, "t", "", "customize template file path")
 	flag.StringVar(&staticPath, "s", defaultStaticPath, "static file dir")
@@ -80,12 +81,36 @@ func main() {
 	os.Exit(0)
 }
 
+func basicAuthenticate(user, pass string) bool {
+	if os.Getenv("putit_cms_user") != user {
+		return false
+	}
+	hashed := fmt.Sprintf("%s", sha256.Sum256([]byte(pass)))
+	if os.Getenv("putit_cms_password") != hashed {
+		return false
+	}
+	return true
+}
+
+// 認証が必要な場合のラッパ
+func needBasicAuth(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if ok == false || basicAuthenticate(user, pass) == false {
+			w.Header().Set("WWW-Authenticate", `Basic realm="auth area"`)
+			http.Error(w, "needs authenticate", http.StatusUnauthorized)
+			return
+		}
+		fn(w, r)
+	}
+}
+
 func staticFileHandlerPortal(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		staticFileGetHandler(w, r)
 	case "PUT":
-		staticFilePutHandler(w, r)
+		needBasicAuth(staticFilePutHandler)(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -159,14 +184,13 @@ func profileHandlerPortal(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		profileGetHandler(w, r)
 	case "PUT":
-		profilePutHandler(w, r)
+		needBasicAuth(profilePutHandler)(w, r)
 	default:
 		http.NotFound(w, r)
 	}
 }
 
 func profileGetHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: .mdの対応
 	pro, exist, err := selectProfile()
 	if err != nil {
 		log.Println(err)
@@ -233,11 +257,11 @@ func articlesHandlerPortal(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		articlesGetHandler(w, r)
 	case "POST":
-		articlesPostHandler(w, r)
+		needBasicAuth(articlesPostHandler)(w, r)
 	case "PUT":
-		articlesPutHandler(w, r)
+		needBasicAuth(articlesPutHandler)(w, r)
 	case "DELETE":
-		articlesDeleteHandler(w, r)
+		needBasicAuth(articlesDeleteHandler)(w, r)
 	default:
 		http.NotFound(w, r)
 	}
